@@ -1,7 +1,7 @@
 import os
-from pprint import pprint
 import tensorflow as tf
-from tensorflow import keras
+from tensorflow.keras import Input, Model
+from tensorflow.keras.layers import Activation, Add, BatchNormalization, Conv2D, UpSampling2D, Concatenate
 
 
 def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
@@ -11,9 +11,11 @@ def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
     :param path: Path to YOLO configuration file
     :return: Darknet53 model
     """
-    blocks = parse_cfg(path)
 
-    model = keras.Sequential()
+    blocks = parse_cfg(path)
+    layers = []
+
+    x = input_layer = Input(shape=(None, None, 3))
 
     for block in blocks:
         block_type = block['type']
@@ -22,24 +24,94 @@ def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
             pass
 
         elif block_type == 'convolutional':
-            pass
+            x, layers = _build_conv_layer(x, block, layers)
 
         elif block_type == 'shortcut':
-            pass
+            x, layers = _build_shortcut_layer(x, block, layers)
 
         elif block_type == 'yolo':
             pass
 
         elif block_type == 'route':
-            pass
+            x, layers = _build_route_layer(x, block, layers)
 
         elif block_type == 'upsample':
-            pass
+            x, layers = _build_upsample_layer(x, block, layers)
 
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    return model
+    return Model(inputs=input_layer, outputs=layers[1:])
+
+
+def _build_conv_layer(x, block, layers):
+    stride = int(block['stride'])
+
+    # TODO: Not too sure how to change the input to add padding
+    pad = int(block['pad'])
+
+    filters = int(block['filters'])
+    kernel_size = int(block['size'])
+    padding = 'valid' if stride == 2 else 'same'
+
+    assert block['activation'] in ['linear', 'leaky'], 'Invalid activation: {}'.format(block['activation'])
+
+    activation = None
+    if block['activation'] == 'leaky':
+        activation = tf.nn.leaky_relu
+
+    x = Conv2D(filters=filters,
+               kernel_size=kernel_size,
+               strides=(stride, stride),
+               padding=padding,
+               activation=activation)(x)
+
+    if 'batch_normalize' in block:
+        x = BatchNormalization()(x)
+
+    layers.append(x)
+    return x, layers
+
+
+def _build_upsample_layer(x, block, layers):
+    stride = int(block['stride'])
+
+    x = UpSampling2D(size=(stride, stride))(x)
+    layers.append(x)
+
+    return x, layers
+
+
+def _build_route_layer(x, block, layers):
+    layer_ids = [int(l) for l in block['layers'].split(',')]
+
+    if len(layer_ids) == 1:
+        x = layers[0]
+        layers.append(x)
+
+        return x, layers
+
+    elif len(layer_ids) == 2:
+        layer_1 = layers[layer_ids[0]]
+        layer_2 = layers[layer_ids[1]]
+
+        x = Concatenate(axis=3)([layer_1, layer_2])
+        layers.append(x)
+
+        return x, layers
+
+    else:
+        raise ValueError('Invalid number of layers: {}'.format(layer_ids))
+
+
+def _build_shortcut_layer(x, block, layers):
+    assert block['activation'] == 'linear', 'Invalid activation: {}'.format(block['activation'])
+
+    from_layer = layers[int(block['from'])]
+    x = Add()([from_layer, x])
+    layers.append(x)
+
+    return x, layers
 
 
 def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
@@ -52,10 +124,10 @@ def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
 
         for line in lines:
             if line.startswith('['):
-                type = line[1:-1]
+                block_type = line[1:-1]
                 if len(block) > 0:
                     blocks.append(block)
-                block = {'type': type}
+                block = {'type': block_type}
             else:
                 key, value = [token.strip() for token in line.split('=')]
                 block[key] = value
@@ -65,4 +137,5 @@ def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
         return blocks
 
 
-build_model()
+model = build_model()
+print(model.summary())
