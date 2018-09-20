@@ -1,5 +1,45 @@
 import os
 from pprint import pprint
+import tensorflow as tf
+from tensorflow import keras
+
+
+def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
+    """
+    Builds Darknet53 by reading the YOLO configuration file
+
+    :param path: Path to YOLO configuration file
+    :return: Darknet53 model
+    """
+    blocks = parse_cfg(path)
+
+    model = keras.Sequential()
+
+    for block in blocks:
+        block_type = block['type']
+
+        if block_type == 'net':
+            pass
+
+        elif block_type == 'convolutional':
+            pass
+
+        elif block_type == 'shortcut':
+            pass
+
+        elif block_type == 'yolo':
+            pass
+
+        elif block_type == 'route':
+            pass
+
+        elif block_type == 'upsample':
+            pass
+
+        else:
+            raise ValueError('{} not recognized as block type'.format(block_type))
+
+    return model
 
 
 def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
@@ -25,4 +65,4 @@ def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
         return blocks
 
 
-pprint(parse_cfg())
+build_model()
