@@ -1,9 +1,10 @@
 import os
 from tensorflow.keras import Input, Model
-from tensorflow.keras.layers import Activation, Add, BatchNormalization, Concatenate, Conv2D, GlobalAveragePooling2D, \
+from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, GlobalAveragePooling2D, \
     LeakyReLU, UpSampling2D
 from tensorflow.keras.regularizers import l2
 from tensorflow.python.keras.layers import Dense, ZeroPadding2D
+from tensorflow.keras.utils import plot_model as plot
 
 
 def darknet_base(inputs):
@@ -80,32 +81,29 @@ def _build_conv_layer(x, block, layers):
 def _build_upsample_layer(x, block, layers):
     stride = int(block['stride'])
 
-    x = UpSampling2D(size=(stride, stride))(x)
+    x = UpSampling2D(size=stride)(x)
     layers.append(x)
 
     return x, layers
 
 
 def _build_route_layer(x, block, layers):
-    layer_ids = [int(l) for l in block['layers'].split(',')]
+    selected_layers = [layers[int(l)] for l in block['layers'].split(',')]
 
-    if len(layer_ids) == 1:
-        x = layers[layer_ids[0]]
+    if len(selected_layers) == 1:
+        x = selected_layers[0]
         layers.append(x)
 
         return x, layers
 
-    elif len(layer_ids) == 2:
-        layer_1 = layers[layer_ids[0]]
-        layer_2 = layers[layer_ids[1]]
-
-        x = Concatenate(axis=3)([layer_1, layer_2])
+    elif len(selected_layers) == 2:
+        x = Concatenate(axis=3)(selected_layers)
         layers.append(x)
 
         return x, layers
 
     else:
-        raise ValueError('Invalid number of layers: {}'.format(layer_ids))
+        raise ValueError('Invalid number of layers: {}'.format(len(selected_layers)))
 
 
 def _build_shortcut_layer(x, block, layers):
@@ -113,7 +111,6 @@ def _build_shortcut_layer(x, block, layers):
     x = Add()([from_layer, x])
 
     assert block['activation'] == 'linear', 'Invalid activation: {}'.format(block['activation'])
-    x = Activation('linear')(x)
     layers.append(x)
 
     return x, layers
@@ -142,11 +139,13 @@ def parse_cfg(path):
         return blocks
 
 
-inputs = Input(shape=(416, 416, 3))
-x = darknet_base(inputs)
-x = GlobalAveragePooling2D()(x)
-x = Dense(1000, activation='softmax')(x)
+inputs = Input(shape=(None, None, 3))
+net = darknet_base(inputs)
+net = GlobalAveragePooling2D()(net)
+net = Dense(1000, activation='softmax')(net)
 
-model = Model(inputs, x)
+model = Model(inputs, net)
 
 print(model.summary())
+
+plot(model, to_file='arch_diagram/model.png', show_shapes=True)
