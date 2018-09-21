@@ -1,21 +1,21 @@
 import os
-import tensorflow as tf
 from tensorflow.keras import Input, Model
-from tensorflow.keras.layers import Activation, Add, BatchNormalization, Conv2D, UpSampling2D, Concatenate
+from tensorflow.keras.layers import Activation, Add, BatchNormalization, Concatenate, Conv2D, GlobalAveragePooling2D, \
+    LeakyReLU, UpSampling2D
+from tensorflow.keras.regularizers import l2
+from tensorflow.python.keras.layers import Dense, ZeroPadding2D
 
 
-def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
+def darknet_base(inputs):
     """
     Builds Darknet53 by reading the YOLO configuration file
 
     :param path: Path to YOLO configuration file
     :return: Darknet53 model
     """
-
+    path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
     blocks = parse_cfg(path)
-    layers = []
-
-    x = input_layer = Input(shape=(None, None, 3))
+    x, layers = inputs, []
 
     for block in blocks:
         block_type = block['type']
@@ -41,7 +41,7 @@ def build_model(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    return Model(inputs=input_layer, outputs=layers[1:])
+    return x
 
 
 def _build_conv_layer(x, block, layers):
@@ -52,24 +52,28 @@ def _build_conv_layer(x, block, layers):
 
     filters = int(block['filters'])
     kernel_size = int(block['size'])
-    padding = 'valid' if stride == 2 else 'same'
+    padding = 'same' if pad == 1 and stride == 1 else 'valid'
 
-    assert block['activation'] in ['linear', 'leaky'], 'Invalid activation: {}'.format(block['activation'])
-
-    activation = None
-    if block['activation'] == 'leaky':
-        activation = tf.nn.leaky_relu
+    if stride > 1:
+        x = ZeroPadding2D(((1, 0), (1, 0)))(x)
 
     x = Conv2D(filters=filters,
                kernel_size=kernel_size,
                strides=(stride, stride),
                padding=padding,
-               activation=activation)(x)
+               activation='linear',
+               kernel_regularizer=l2(5e-4))(x)
 
     if 'batch_normalize' in block:
         x = BatchNormalization()(x)
 
+    assert block['activation'] in ['linear', 'leaky'], 'Invalid activation: {}'.format(block['activation'])
+
+    if block['activation'] == 'leaky':
+        x = LeakyReLU(alpha=0.1)(x)
+
     layers.append(x)
+
     return x, layers
 
 
@@ -86,7 +90,7 @@ def _build_route_layer(x, block, layers):
     layer_ids = [int(l) for l in block['layers'].split(',')]
 
     if len(layer_ids) == 1:
-        x = layers[0]
+        x = layers[layer_ids[0]]
         layers.append(x)
 
         return x, layers
@@ -105,16 +109,17 @@ def _build_route_layer(x, block, layers):
 
 
 def _build_shortcut_layer(x, block, layers):
-    assert block['activation'] == 'linear', 'Invalid activation: {}'.format(block['activation'])
-
     from_layer = layers[int(block['from'])]
     x = Add()([from_layer, x])
+
+    assert block['activation'] == 'linear', 'Invalid activation: {}'.format(block['activation'])
+    x = Activation('linear')(x)
     layers.append(x)
 
     return x, layers
 
 
-def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
+def parse_cfg(path):
     with open(path) as cfg:
         lines = [line.rstrip() for line in cfg if line.rstrip()]
         lines = [line for line in lines if not line.startswith('#')]
@@ -137,5 +142,11 @@ def parse_cfg(path=os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')):
         return blocks
 
 
-model = build_model()
+inputs = Input(shape=(416, 416, 3))
+x = darknet_base(inputs)
+x = GlobalAveragePooling2D()(x)
+x = Dense(1000, activation='softmax')(x)
+
+model = Model(inputs, x)
+
 print(model.summary())
