@@ -11,8 +11,8 @@ def darknet_base(inputs):
     """
     Builds Darknet53 by reading the YOLO configuration file
 
-    :param path: Path to YOLO configuration file
-    :return: Darknet53 model
+    :param inputs: Input tensor
+    :return: A list of output layers
     """
     path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
     blocks = parse_cfg(path)
@@ -31,7 +31,7 @@ def darknet_base(inputs):
             x, layers = _build_shortcut_layer(x, block, layers)
 
         elif block_type == 'yolo':
-            pass
+            x, layers = _build_yolo_layer(x, block, layers)
 
         elif block_type == 'route':
             x, layers = _build_route_layer(x, block, layers)
@@ -42,7 +42,11 @@ def darknet_base(inputs):
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    return x
+    # NOTE: All the indices with NONE are YOLO layers. Therefore, the layer right
+    # NOTE: before the YOLO layer is an output layer, which we are interested in.
+    outputs = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
+
+    return outputs
 
 
 def _build_conv_layer(x, block, layers):
@@ -116,6 +120,13 @@ def _build_shortcut_layer(x, block, layers):
     return x, layers
 
 
+def _build_yolo_layer(x, block, layers):
+    # NOTE: Here we append None to specify that the preceding layer is a output layer
+    layers.append(None)
+
+    return x, layers
+
+
 def parse_cfg(path):
     with open(path) as cfg:
         lines = [line.rstrip() for line in cfg if line.rstrip()]
@@ -140,12 +151,16 @@ def parse_cfg(path):
 
 
 inputs = Input(shape=(None, None, 3))
-net = darknet_base(inputs)
-net = GlobalAveragePooling2D()(net)
-net = Dense(1000, activation='softmax')(net)
+outputs = darknet_base(inputs)
 
-model = Model(inputs, net)
+# NOTE: Attach the Average Pooling layers to the last output layer
+# last = outputs[-1]
+# last = GlobalAveragePooling2D()(last)
+# last = Dense(1000, activation='softmax')(last)
+# outputs[-1] = last
+
+model = Model(inputs, outputs)
 
 print(model.summary())
 
-plot(model, to_file='arch_diagram/model.png', show_shapes=True)
+plot(model, to_file='utils/model.png', show_shapes=True)

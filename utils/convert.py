@@ -42,7 +42,7 @@ def unique_config_sections(config_file):
 
 def _main():
     args = {
-        'config_path': os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg'),
+        'config_path': os.path.join(os.getcwd(), '..', 'cfg', 'yolov3.cfg'),
         'weights_path': os.path.join(os.getcwd(), 'yolov3.weights'),
         'output_path': os.path.join(os.getcwd(), 'yolov3.h5'),
         'plot_model': True,
