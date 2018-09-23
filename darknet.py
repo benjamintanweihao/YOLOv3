@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, \
     LeakyReLU, UpSampling2D
@@ -7,6 +8,9 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.python.keras.layers import ZeroPadding2D
 from tensorflow.keras.utils import plot_model as plot
 import tensorflow.keras.backend as K
+
+from yolo_layer import YOLOLayer
+
 
 # NOTE: The original Darknet parser is at
 # NOTE: https://github.com/pjreddie/darknet/blob/master/src/parser.c
@@ -29,7 +33,7 @@ def darknet_base(inputs):
     """
     path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
     blocks = parse_cfg(path)
-    x, layers = inputs, []
+    x, layers, outputs = inputs, [], []
     ptr = 0
 
     for block in blocks:
@@ -39,31 +43,31 @@ def darknet_base(inputs):
             pass
 
         elif block_type == 'convolutional':
-            x, layers, ptr = _build_conv_layer(x, block, layers, ptr)
+            x, layers, outputs, ptr = _build_conv_layer(x, block, layers, outputs, ptr)
 
         elif block_type == 'shortcut':
-            x, layers, ptr = _build_shortcut_layer(x, block, layers, ptr)
+            x, layers, outputs, ptr = _build_shortcut_layer(x, block, layers, outputs, ptr)
 
         elif block_type == 'yolo':
-            x, layers, ptr = _build_yolo_layer(x, block, layers, ptr)
+            x, layers, outputs, ptr = _build_yolo_layer(x, block, layers, outputs, ptr)
 
         elif block_type == 'route':
-            x, layers, ptr = _build_route_layer(x, block, layers, ptr)
+            x, layers, outputs, ptr = _build_route_layer(x, block, layers, outputs, ptr)
 
         elif block_type == 'upsample':
-            x, layers, ptr = _build_upsample_layer(x, block, layers, ptr)
+            x, layers, outputs, ptr = _build_upsample_layer(x, block, layers, outputs, ptr)
 
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
     # NOTE: All the indices with NONE are YOLO layers. Therefore, the layer right
     # NOTE: before the YOLO layer is an output layer, which we are interested in.
-    outputs = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
+    # outputs = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
 
     return outputs, ptr
 
 
-def _build_conv_layer(x, block, layers, ptr):
+def _build_conv_layer(x, block, layers, outputs, ptr):
     stride = int(block['stride'])
 
     # TODO: Not too sure how to change the input to add padding
@@ -102,9 +106,9 @@ def _build_conv_layer(x, block, layers, ptr):
 
         bn_weights_list = [
             bn_weights[0],  # scale gamma
-            conv_bias,      # shift beta
+            conv_bias,  # shift beta
             bn_weights[1],  # running mean
-            bn_weights[2]   # running var
+            bn_weights[2]  # running var
         ]
 
     conv_weights = np.ndarray(
@@ -145,59 +149,62 @@ def _build_conv_layer(x, block, layers, ptr):
 
     layers.append(x)
 
-    return x, layers, ptr
+    return x, layers, outputs, ptr
 
 
-def _build_upsample_layer(x, block, layers, ptr):
+def _build_upsample_layer(x, block, layers, outputs, ptr):
     stride = int(block['stride'])
 
     x = UpSampling2D(size=stride)(x)
     layers.append(x)
 
-    return x, layers, ptr
+    return x, layers, outputs, ptr
 
 
-def _build_route_layer(_x, block, layers, ptr):
+def _build_route_layer(_x, block, layers, outputs, ptr):
     selected_layers = [layers[int(l)] for l in block['layers'].split(',')]
 
     if len(selected_layers) == 1:
         x = selected_layers[0]
         layers.append(x)
 
-        return x, layers, ptr
+        return x, layers, outputs, ptr
 
     elif len(selected_layers) == 2:
         x = Concatenate(axis=3)(selected_layers)
         layers.append(x)
 
-        return x, layers, ptr
+        return x, layers, outputs, ptr
 
     else:
         raise ValueError('Invalid number of layers: {}'.format(len(selected_layers)))
 
 
-def _build_shortcut_layer(x, block, layers, ptr):
+def _build_shortcut_layer(x, block, layers, outputs, ptr):
     from_layer = layers[int(block['from'])]
     x = Add()([from_layer, x])
 
     assert block['activation'] == 'linear', 'Invalid activation: {}'.format(block['activation'])
     layers.append(x)
 
-    return x, layers, ptr
+    return x, layers, outputs, ptr
 
 
-def _build_yolo_layer(x, block, layers, ptr):
+def _build_yolo_layer(x, block, layers, outputs, ptr):
     # Read indices of masks
     masks = [int(m) for m in block['mask'].split(',')]
     # Anchors used based on mask indices
     anchors = [a for a in block['anchors'].split(',  ')]
     anchors = [anchors[i] for i in range(len(anchors)) if i in masks]
     anchors = [tuple(a.split(',')) for a in anchors]
+    classes = int(block['classes'])
 
+    x = YOLOLayer(classes=classes, anchors=anchors)(x)
+    outputs.append(x)
     # NOTE: Here we append None to specify that the preceding layer is a output layer
     layers.append(None)
 
-    return x, layers, ptr
+    return x, layers, outputs, ptr
 
 
 def parse_cfg(path):
@@ -223,11 +230,16 @@ def parse_cfg(path):
         return blocks
 
 
-inputs = Input(shape=(None, None, 3))
+inputs = Input(shape=(416, 416, 3))
 outputs, weights_ptr = darknet_base(inputs)
 
 model = Model(inputs, outputs)
 model.summary()
+
+# for output in outputs:
+#     x = output[-1]
+#     x = YOLOLayer(output_dim=(x.get_shape()[0], -1, 3, 85))(x)
+#     print(x.get_shape())
 
 plot(model, to_file='utils/model.png', show_shapes=True)
 
@@ -241,4 +253,3 @@ if remaining_weights > 0:
     print('Warning: {} unused weights'.format(remaining_weights))
 else:
     print('Weights loaded successfully!')
-
