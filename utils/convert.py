@@ -125,9 +125,9 @@ def _main():
 
                 bn_weight_list = [
                     bn_weights[0],  # scale gamma
-                    conv_bias,  # shift beta
+                    conv_bias,      # shift beta
                     bn_weights[1],  # running mean
-                    bn_weights[2]  # running var
+                    bn_weights[2]   # running var
                 ]
 
             conv_weights = np.ndarray(
