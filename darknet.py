@@ -186,7 +186,14 @@ def _build_shortcut_layer(x, block, layers, ptr):
     return x, layers, ptr
 
 
-def _build_yolo_layer(x, _block, layers, ptr):
+def _build_yolo_layer(x, block, layers, ptr):
+    # Read indices of masks
+    masks = [int(m) for m in block['mask'].split(',')]
+    # Anchors used based on mask indices
+    anchors = [a for a in block['anchors'].split(',  ')]
+    anchors = [anchors[i] for i in range(len(anchors)) if i in masks]
+    anchors = [tuple(a.split(',')) for a in anchors]
+
     # NOTE: Here we append None to specify that the preceding layer is a output layer
     layers.append(None)
 
