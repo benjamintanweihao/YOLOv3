@@ -11,8 +11,8 @@ wget https://pjreddie.com/media/files/yolov3.weights
 - [X] Build YOLO model
 - [X] Check against a well-known implementation
 - [X] Load YOLO pre-trained weights
-- [ ] Handle YOLO layer (Detection Layer)
-- [ ] Loss function
+- [X] Handle YOLO layer (Detection Layer)
+- [ ] Non-Maximal Supression
 
 # TODO
 
