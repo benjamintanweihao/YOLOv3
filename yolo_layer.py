@@ -26,6 +26,7 @@ class YOLOLayer(tf.keras.layers.Layer):
 
         box_xy = tf.sigmoid(prediction[:, :, :2])  # t_x (box x and y coordinates)
         objectness = tf.sigmoid(prediction[:, :, 4])  # p_o (objectness score)
+        objectness = tf.expand_dims(objectness, 2)  # To make the same number of values for axis 0 and 1
 
         grid = tf.range(grid_size)
         a, b = tf.meshgrid(grid, grid)
@@ -43,7 +44,6 @@ class YOLOLayer(tf.keras.layers.Layer):
         box_xy += x_y_offset
 
         # Log space transform of the height and width
-        # anchors = tf.constant(anchors, dtype='float32')
         anchors = tf.cast([(a[0] / stride, a[1] / stride) for a in self.anchors], dtype='float32')
         anchors = tf.tile(anchors, (grid_size * grid_size, 1))
         anchors = tf.expand_dims(anchors, 0)
@@ -58,20 +58,15 @@ class YOLOLayer(tf.keras.layers.Layer):
         box_xy *= stride
         box_wh *= stride
 
-        # box_xy = tf.Print(box_xy, [box_xy], message='Box XY')
-        # box_wh = tf.Print(box_wh, [box_wh], message='Box WH')
-        # objectness = tf.Print(objectness, [objectness], message='Objectness')
-        # class_scores = tf.Print(class_scores, [class_scores], message='Class Scores')
-
-        return box_xy, box_wh, objectness, class_scores
+        return tf.keras.layers.Concatenate(axis=2)([box_xy, box_xy, objectness, class_scores])
 
     def compute_output_shape(self, input_shape):
+        batch_size = input_shape[0]
         num_anchors = len(self.anchors)
+        stride = self.input_image_dim[0] // input_shape[1]
+        grid_size = self.input_image_dim[0] // stride
+        num_bboxes = num_anchors * grid_size * grid_size
 
-        n, h, w, c = input_shape
-        box_xy = (None, h, w, num_anchors, 2)
-        box_wh = (None, h, w, num_anchors, 2)
-        box_confidence = (None, h, w, num_anchors, 1)
-        box_class_probs = (None, h, w, num_anchors, self.num_classes)  # TODO: NOT TOO SURE ABOUT THIS
+        shape = (batch_size, num_bboxes, self.num_classes + 5)
 
-        return box_xy, box_wh, box_confidence, box_class_probs
+        return tf.TensorShape(shape)

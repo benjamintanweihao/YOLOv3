@@ -32,7 +32,7 @@ def darknet_base(inputs):
     Builds Darknet53 by reading the YOLO configuration file
 
     :param inputs: Input tensor
-    :return: A list of output layers, yolo_layers, and a ptr to the weights file
+    :return: A list of output (YOLO) layers and a ptr to the weights file
     """
     path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
     blocks = parse_cfg(path)
@@ -63,11 +63,7 @@ def darknet_base(inputs):
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    # NOTE: All the indices with NONE are YOLO layers. Therefore, the layer right
-    # NOTE: before the YOLO layer is an output layer, which we are interested in.
-    output_layers = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
-
-    return output_layers, yolo_layers, ptr
+    return yolo_layers, ptr
 
 
 def _build_conv_layer(x, block, layers, outputs, ptr):
@@ -199,9 +195,8 @@ def _build_yolo_layer(x, block, layers, outputs, ptr):
     anchors = [tuple([int(a) for a in anchor.split(',')]) for anchor in anchors]
     classes = int(block['classes'])
 
-    # x = YOLOLayer(num_classes=classes, anchors=anchors)(x)
-    yolo = YOLOLayer(num_classes=classes, anchors=anchors)
-    outputs.append(yolo)
+    x = YOLOLayer(num_classes=classes, anchors=anchors)(x)
+    outputs.append(x)
     # NOTE: Here we append None to specify that the preceding layer is a output layer
     layers.append(None)
 
@@ -233,7 +228,7 @@ def parse_cfg(path):
 
 # TODO: Don't hard code the image height and width
 inputs = Input(shape=(608, 608, 3))
-output_layers, yolo_layers, weights_ptr = darknet_base(inputs)
+outputs, weights_ptr = darknet_base(inputs)
 
 ######################
 # Check weights file #
@@ -251,7 +246,7 @@ else:
     print('Weights loaded successfully!')
 
 
-model = Model(inputs, output_layers)
+model = Model(inputs, outputs)
 model.summary()
 
 plot(model, to_file='utils/model.png', show_shapes=True)
@@ -269,25 +264,27 @@ img = np.expand_dims(img, axis=0)
 
 predictions = model.predict([img])
 
-for yolo_layer, prediction in zip(yolo_layers, predictions):
-    # NOTE: The values can be seen due to eager mode.
-    box_xy, box_wh, objectness, class_scores = yolo_layer(prediction)
 
-    box_xy = box_xy[0]
-    box_wh = box_wh[0]
-    objectness = objectness[0]
-    class_scores = class_scores[0]
+for prediction in predictions:
+    # (1, 17328, 85)
+    # (batch, number of bounding boxes, scores)
+    (batches, bboxes, scores) = prediction.shape
+    for batch in range(batches):
+        for bbox in range(bboxes):
+            pred = prediction[batch][bbox]
+            box_xy = pred[0:2]
+            box_wh = pred[2:4]
+            objectness = pred[4]
+            class_scores = pred[5:]
 
-    for (x1, y1), (w, h) in zip(box_xy, box_wh):
-        x2 = x1 + w
-        y2 = y1 + h
+            if objectness > 0.54:
+                print(objectness)
+                x1, y1 = box_xy
+                w, h = box_wh
 
-        if max([x1, x2, y1, y2]) <= 608:
-            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                x2 = x1 + w
+                y2 = y1 + h
 
-    cv2.imwrite("out.png", orig)
+                cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
 
-    # print(box_xy)
-    # print(box_wh)
-    # print(objectness)
-    # print(class_scores)
+        cv2.imwrite("out.png", orig)
