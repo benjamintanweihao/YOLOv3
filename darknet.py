@@ -1,4 +1,6 @@
 import os
+from collections import defaultdict
+
 import numpy as np
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, \
@@ -17,7 +19,7 @@ from yolo_layer import YOLOLayer
 # TODO: inference. Weirdly, it also loads the network very fast compared to non-eager.
 # TODO: It could be that in eager mode, the weights are not loaded. Need to verify
 # TODO: this.
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 
 # NOTE: The original Darknet parser is at
 # NOTE: https://github.com/pjreddie/darknet/blob/master/src/parser.c
@@ -118,9 +120,9 @@ def _build_conv_layer(x, block, layers, outputs, ptr):
 
         bn_weights_list = [
             bn_weights[0],  # scale gamma
-            conv_bias,      # shift beta
+            conv_bias,  # shift beta
             bn_weights[1],  # running mean
-            bn_weights[2]   # running var
+            bn_weights[2]  # running var
         ]
 
     conv_weights = np.ndarray(
@@ -252,25 +254,74 @@ img = np.expand_dims(img, axis=0)
 
 predictions = model.predict([img])
 
-# (1, 17328, 85)
-# (batch, number of bounding boxes, scores)
-(batches, bboxes, scores) = predictions.shape
-for batch in range(batches):
-    for bbox in range(bboxes):
-        pred = predictions[batch][bbox]
-        box_xy = pred[0:2]
-        box_wh = pred[2:4]
-        objectness = pred[4]
-        class_scores = pred[5:]
 
-        if objectness > 0.54:
-            print(objectness)
-            x1, y1 = box_xy
-            w, h = box_wh
+def iou(box1, box2):
+    b1_x0, b1_y0, b1_x1, b1_y1 = box1
+    b2_x0, b2_y0, b2_x1, b2_y1 = box2
 
-            x2 = x1 + w
-            y2 = y1 + h
+    int_x0 = max(b1_x0, b2_x0)
+    int_y0 = max(b1_y0, b2_y0)
+    int_x1 = min(b1_x1, b2_x1)
+    int_y1 = min(b1_y1, b2_y1)
 
-            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
+    int_area = (int_x1 - int_x0) * (int_y1 - int_y0)
 
-    cv2.imwrite("out.png", orig)
+    b1_area = (b1_x1 - b1_x0) * (b1_y1 - b1_y0)
+    b2_area = (b2_x1 - b2_x0) * (b2_y1 - b2_y0)
+
+    return int_area / (b1_area + b2_area - int_area + 1e-05)
+
+
+def write_results(predictions, confidence=0.5, iou_threshold=0.4):
+    # (1, 17328, 85)
+    # (batch, number of bounding boxes, scores)
+    (batch_size, bboxes, scores) = predictions.shape
+
+    conf_mask = np.expand_dims((predictions[:, :, 4] > confidence), -1)
+    predictions_ = predictions * conf_mask
+
+    print(predictions_.shape)
+
+    shape = predictions_.shape
+
+    # Transform coordinates of boxes
+    box_attrs = np.ndarray(shape=(shape[0], shape[1], 5))
+    box_attrs[:, :, 0] = (predictions_[:, :, 0] - predictions_[:, :, 2] / 2)
+    box_attrs[:, :, 1] = (predictions_[:, :, 1] - predictions_[:, :, 3] / 2)
+    box_attrs[:, :, 2] = (predictions_[:, :, 0] + predictions_[:, :, 2] / 2)
+    box_attrs[:, :, 3] = (predictions_[:, :, 1] + predictions_[:, :, 3] / 2)
+    box_attrs[:, :, 4] = predictions_[:, :, 4]
+
+    result = defaultdict(list)
+
+    for bs in range(batch_size):
+        prediction = predictions_[bs]
+        classes = np.argmax(prediction[:, 5:], 1)
+        unique_classes = np.unique(classes)
+
+        # NMS
+        for cls in unique_classes:
+            cls_mask = cls == classes
+            # Identify boxes only for this class
+            cls_boxes = box_attrs[bs][np.nonzero(cls_mask)]
+            cls_boxes = cls_boxes[cls_boxes[:, -1].argsort()[::-1]]
+            cls_scores = cls_boxes[:, -1]
+            cls_boxes = cls_boxes[:, :-1]
+
+            while len(cls_boxes) > 0:
+                box = cls_boxes[0]
+                score = cls_scores[0]
+
+                result[cls].append((box, score))
+                cls_boxes = cls_boxes[1:]
+                ious = np.array([iou(box, b) for b in cls_boxes])
+                iou_mask = ious < iou_threshold  # keep if less than IOU threshold
+                cls_boxes = cls_boxes[np.nonzero(iou_mask)]
+                cls_scores = cls_scores[np.nonzero(iou_mask)]
+
+                print(len(cls_boxes))
+
+    return result
+
+
+print(write_results(predictions))
