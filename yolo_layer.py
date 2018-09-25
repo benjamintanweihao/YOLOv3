@@ -3,19 +3,17 @@ import tensorflow as tf
 
 class YOLOLayer(tf.keras.layers.Layer):
 
-    def __init__(self, num_classes, anchors, **kwargs):
+    def __init__(self, num_classes, anchors, input_dims, **kwargs):
         self.num_classes = num_classes
         self.anchors = anchors
-
-        # TODO: Remove this hardcoded value later.
-        self.input_image_dim = (608, 608)
+        self.input_dims = input_dims
 
         super(YOLOLayer, self).__init__(**kwargs)
 
     def call(self, prediction, **kwargs):
         batch_size = tf.shape(prediction)[0]
-        stride = self.input_image_dim[0] // tf.shape(prediction)[1]
-        grid_size = self.input_image_dim[0] // stride
+        stride = self.input_dims[0] // tf.shape(prediction)[1]
+        grid_size = self.input_dims[0] // stride
         num_anchors = len(self.anchors)
 
         prediction = tf.reshape(prediction,
@@ -63,8 +61,8 @@ class YOLOLayer(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
         num_anchors = len(self.anchors)
-        stride = self.input_image_dim[0] // input_shape[1]
-        grid_size = self.input_image_dim[0] // stride
+        stride = self.input_dims[0] // input_shape[1]
+        grid_size = self.input_dims[0] // stride
         num_bboxes = num_anchors * grid_size * grid_size
 
         shape = (batch_size, num_bboxes, self.num_classes + 5)

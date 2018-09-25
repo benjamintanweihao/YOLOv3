@@ -10,9 +10,13 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 import cv2
 
+from utils.parser import Parser
 from yolo_layer import YOLOLayer
 
-# NOTE: This lets us see the values from YOLO layers
+# TODO: It seems like turning on eager execution always gives different values during
+# TODO: inference. Weirdly, it also loads the network very fast compared to non-eager.
+# TODO: It could be that in eager mode, the weights are not loaded. Need to verify
+# TODO: this.
 tf.enable_eager_execution()
 
 # NOTE: The original Darknet parser is at
@@ -32,18 +36,19 @@ def darknet_base(inputs):
     Builds Darknet53 by reading the YOLO configuration file
 
     :param inputs: Input tensor
-    :return: A list of output (YOLO) layers and a ptr to the weights file
+    :return: A list of output (YOLO) layers and a dict containing a ptr to the weights file and network config
     """
     path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
-    blocks = parse_cfg(path)
+    blocks = Parser.parse_cfg(path)
     x, layers, yolo_layers = inputs, [], []
     ptr = 0
+    config = {}
 
     for block in blocks:
         block_type = block['type']
 
         if block_type == 'net':
-            pass
+            config = _read_net_config(block)
 
         elif block_type == 'convolutional':
             x, layers, yolo_layers, ptr = _build_conv_layer(x, block, layers, yolo_layers, ptr)
@@ -52,7 +57,7 @@ def darknet_base(inputs):
             x, layers, yolo_layers, ptr = _build_shortcut_layer(x, block, layers, yolo_layers, ptr)
 
         elif block_type == 'yolo':
-            x, layers, yolo_layers, ptr = _build_yolo_layer(x, block, layers, yolo_layers, ptr)
+            x, layers, yolo_layers, ptr = _build_yolo_layer(x, block, layers, yolo_layers, ptr, config)
 
         elif block_type == 'route':
             x, layers, yolo_layers, ptr = _build_route_layer(x, block, layers, yolo_layers, ptr)
@@ -63,7 +68,18 @@ def darknet_base(inputs):
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    return yolo_layers, ptr
+    return tf.keras.layers.Concatenate(axis=1)(yolo_layers), {'ptr': ptr, 'config': config}
+
+
+def _read_net_config(block):
+    width = int(block['width'])
+    height = int(block['height'])
+    channels = int(block['channels'])
+
+    return {
+        'width': width,
+        'height': height,
+        'channels': channels}
 
 
 def _build_conv_layer(x, block, layers, outputs, ptr):
@@ -102,9 +118,9 @@ def _build_conv_layer(x, block, layers, outputs, ptr):
 
         bn_weights_list = [
             bn_weights[0],  # scale gamma
-            conv_bias,  # shift beta
+            conv_bias,      # shift beta
             bn_weights[1],  # running mean
-            bn_weights[2]  # running var
+            bn_weights[2]   # running var
         ]
 
     conv_weights = np.ndarray(
@@ -186,7 +202,7 @@ def _build_shortcut_layer(x, block, layers, outputs, ptr):
     return x, layers, outputs, ptr
 
 
-def _build_yolo_layer(x, block, layers, outputs, ptr):
+def _build_yolo_layer(x, block, layers, outputs, ptr, config):
     # Read indices of masks
     masks = [int(m) for m in block['mask'].split(',')]
     # Anchors used based on mask indices
@@ -195,7 +211,7 @@ def _build_yolo_layer(x, block, layers, outputs, ptr):
     anchors = [tuple([int(a) for a in anchor.split(',')]) for anchor in anchors]
     classes = int(block['classes'])
 
-    x = YOLOLayer(num_classes=classes, anchors=anchors)(x)
+    x = YOLOLayer(num_classes=classes, anchors=anchors, input_dims=(config['width'], config['height']))(x)
     outputs.append(x)
     # NOTE: Here we append None to specify that the preceding layer is a output layer
     layers.append(None)
@@ -203,48 +219,21 @@ def _build_yolo_layer(x, block, layers, outputs, ptr):
     return x, layers, outputs, ptr
 
 
-def parse_cfg(path):
-    with open(path) as cfg:
-        lines = [line.rstrip() for line in cfg if line.rstrip()]
-        lines = [line for line in lines if not line.startswith('#')]
-
-        block = {}
-        blocks = []
-
-        for line in lines:
-            if line.startswith('['):
-                block_type = line[1:-1]
-                if len(block) > 0:
-                    blocks.append(block)
-                block = {'type': block_type}
-            else:
-                key, value = [token.strip() for token in line.split('=')]
-                block[key] = value
-
-        blocks.append(block)
-
-        return blocks
+def verify_weights_completed_consumed(aux):
+    remaining_weights = len(weights_file.read()) // 4
+    weights_file.close()
+    percentage = int((aux['ptr'] / (aux['ptr'] + remaining_weights)) * 100)
+    print('Read {}% from Darknet weights.'.format(percentage))
+    if remaining_weights > 0:
+        print('Warning: {} unused weights'.format(remaining_weights))
+    else:
+        print('Weights loaded successfully!')
 
 
-# TODO: Don't hard code the image height and width
-inputs = Input(shape=(608, 608, 3))
-outputs, weights_ptr = darknet_base(inputs)
+inputs = Input(shape=(None, None, 3))
+outputs, aux = darknet_base(inputs)
 
-######################
-# Check weights file #
-######################
-
-# Check that the weights file has been completely consumed.
-
-remaining_weights = len(weights_file.read()) // 4
-weights_file.close()
-percentage = int((weights_ptr / (weights_ptr + remaining_weights)) * 100)
-print('Read {}% from Darknet weights.'.format(percentage))
-if remaining_weights > 0:
-    print('Warning: {} unused weights'.format(remaining_weights))
-else:
-    print('Weights loaded successfully!')
-
+verify_weights_completed_consumed(aux)
 
 model = Model(inputs, outputs)
 model.summary()
@@ -254,8 +243,7 @@ plot(model, to_file='utils/model.png', show_shapes=True)
 # Feed in one image
 
 orig = cv2.imread('utils/dog-cycle-car.png')
-# TODO: Don't hard code the image height and width
-orig = cv2.resize(orig, (608, 608))  # Resize to the input dimension
+orig = cv2.resize(orig, (aux['config']['width'], aux['config']['height']))
 
 img = orig.astype(np.float32)
 img = img[:, :, ::-1]  # BGR -> RGB
@@ -264,27 +252,25 @@ img = np.expand_dims(img, axis=0)
 
 predictions = model.predict([img])
 
+# (1, 17328, 85)
+# (batch, number of bounding boxes, scores)
+(batches, bboxes, scores) = predictions.shape
+for batch in range(batches):
+    for bbox in range(bboxes):
+        pred = predictions[batch][bbox]
+        box_xy = pred[0:2]
+        box_wh = pred[2:4]
+        objectness = pred[4]
+        class_scores = pred[5:]
 
-for prediction in predictions:
-    # (1, 17328, 85)
-    # (batch, number of bounding boxes, scores)
-    (batches, bboxes, scores) = prediction.shape
-    for batch in range(batches):
-        for bbox in range(bboxes):
-            pred = prediction[batch][bbox]
-            box_xy = pred[0:2]
-            box_wh = pred[2:4]
-            objectness = pred[4]
-            class_scores = pred[5:]
+        if objectness > 0.54:
+            print(objectness)
+            x1, y1 = box_xy
+            w, h = box_wh
 
-            if objectness > 0.54:
-                print(objectness)
-                x1, y1 = box_xy
-                w, h = box_wh
+            x2 = x1 + w
+            y2 = y1 + h
 
-                x2 = x1 + w
-                y2 = y1 + h
+            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
 
-                cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
-
-        cv2.imwrite("out.png", orig)
+    cv2.imwrite("out.png", orig)
