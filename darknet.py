@@ -272,56 +272,75 @@ def iou(box1, box2):
     return int_area / (b1_area + b2_area - int_area + 1e-05)
 
 
-def write_results(predictions, confidence=0.5, iou_threshold=0.4):
-    # (1, 17328, 85)
-    # (batch, number of bounding boxes, scores)
-    (batch_size, bboxes, scores) = predictions.shape
+def predict(predictions, confidence=0.5, iou_threshold=0.4):
+    boxes = predictions[:, :, :4]
+    box_confidences = np.expand_dims(predictions[:, :, 5], -1)
+    box_class_probs = predictions[:, :, 5:]
 
-    conf_mask = np.expand_dims((predictions[:, :, 4] > confidence), -1)
-    predictions_ = predictions * conf_mask
+    box_scores = box_confidences * box_class_probs
+    box_classes = np.argmax(box_scores, axis=-1)
+    box_class_scores = np.max(box_scores, axis=-1)
+    pos = np.where(box_class_scores >= confidence)
 
-    print(predictions_.shape)
+    boxes = boxes[pos]
+    classes = box_classes[pos]
+    scores = box_class_scores[pos]
 
-    shape = predictions_.shape
+    nboxes, nclasses, nscores = [], [], []
 
-    # Transform coordinates of boxes
-    box_attrs = np.ndarray(shape=(shape[0], shape[1], 5))
-    box_attrs[:, :, 0] = (predictions_[:, :, 0] - predictions_[:, :, 2] / 2)
-    box_attrs[:, :, 1] = (predictions_[:, :, 1] - predictions_[:, :, 3] / 2)
-    box_attrs[:, :, 2] = (predictions_[:, :, 0] + predictions_[:, :, 2] / 2)
-    box_attrs[:, :, 3] = (predictions_[:, :, 1] + predictions_[:, :, 3] / 2)
-    box_attrs[:, :, 4] = predictions_[:, :, 4]
+    # TODO: Check if scaled properly
+    for c in set(classes):
+        inds = np.where(classes == c)
+        b = boxes[inds]
+        c = classes[inds]
+        s = scores[inds]
 
-    result = defaultdict(list)
+        x = b[:, 0]
+        y = b[:, 1]
+        w = b[:, 2]
+        h = b[:, 3]
 
-    for bs in range(batch_size):
-        prediction = predictions_[bs]
-        classes = np.argmax(prediction[:, 5:], 1)
-        unique_classes = np.unique(classes)
+        areas = w * h
+        order = s.argsort()[::-1]
 
-        # NMS
-        for cls in unique_classes:
-            cls_mask = cls == classes
-            # Identify boxes only for this class
-            cls_boxes = box_attrs[bs][np.nonzero(cls_mask)]
-            cls_boxes = cls_boxes[cls_boxes[:, -1].argsort()[::-1]]
-            cls_scores = cls_boxes[:, -1]
-            cls_boxes = cls_boxes[:, :-1]
+        keep = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(i)
 
-            while len(cls_boxes) > 0:
-                box = cls_boxes[0]
-                score = cls_scores[0]
+            xx1 = np.maximum(x[i], x[order[1:]])
+            yy1 = np.maximum(y[i], y[order[1:]])
+            xx2 = np.minimum(x[i] + w[i], x[order[1:]] + w[order[1:]])
+            yy2 = np.minimum(y[i] + h[i], y[order[1:]] + h[order[1:]])
 
-                result[cls].append((box, score))
-                cls_boxes = cls_boxes[1:]
-                ious = np.array([iou(box, b) for b in cls_boxes])
-                iou_mask = ious < iou_threshold  # keep if less than IOU threshold
-                cls_boxes = cls_boxes[np.nonzero(iou_mask)]
-                cls_scores = cls_scores[np.nonzero(iou_mask)]
+            w1 = np.maximum(0.0, xx2 - xx1 + 1)
+            h1 = np.maximum(0.0, yy2 - yy1 + 1)
 
-                print(len(cls_boxes))
+            inter = w1 * h1
+            ovr = inter / (areas[i] + areas[order[1:]] - inter)
+            inds = np.where(ovr <= iou_threshold)[0]
+            order = order[inds + 1]
 
-    return result
+        keep = np.array(keep)
+
+        nboxes.append(b[keep])
+        nclasses.append(c[keep])
+        nscores.append(s[keep])
+
+    for boxes in nboxes:
+        for b in boxes:
+            x, y, w, h = b
+
+            x1 = int(x / 2)
+            y1 = int(y / 2)
+            x2 = int(x1 + w)
+            y2 = int(y1 + h)
+
+            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+    cv2.imwrite("out.png", orig)
+
+    return nboxes, nclasses, nscores
 
 
-print(write_results(predictions))
+predict(predictions)
