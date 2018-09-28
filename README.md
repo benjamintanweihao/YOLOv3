@@ -1,4 +1,4 @@
-# YOLOv3 Implementation in TensorFlow 1.1x and Keras
+# :unicorn: YOLOv3 Implementation in TensorFlow 1.1x and Keras :unicorn:
 
 Download weights into the `cfg` directory:
 
@@ -12,7 +12,8 @@ wget https://pjreddie.com/media/files/yolov3.weights
 - [X] Check against a well-known implementation
 - [X] Load YOLO pre-trained weights
 - [X] Handle YOLO layer (Detection Layer)
-- [ ] Non-Maximal Supression
+- [X] Non-Maximal Supression
+- [ ] Colorful boxes with labels and scores
 
 # TODO
 

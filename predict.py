@@ -74,21 +74,46 @@ def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
         return None, None, None
 
 
-def draw_boxes(boxes, classes, scores):
+def _draw_label(image, text, color, coords):
+    font = cv2.FONT_HERSHEY_PLAIN
+    font_scale = 1.
+    (text_width, text_height) = cv2.getTextSize(text, font, fontScale=font_scale, thickness=1)[0]
+
+    padding = 5
+    rect_height = text_height + padding * 2
+    rect_width = text_width + padding * 2
+
+    (x, y) = coords
+
+    cv2.rectangle(image, (x, y), (x + rect_width, y - rect_height), color, cv2.FILLED)
+    cv2.putText(image, text, (x + padding, y - text_height + padding), font,
+                fontScale=font_scale,
+                color=(255, 255, 255),
+                lineType=cv2.LINE_AA)
+
+    return image
+
+
+def draw_boxes(image, boxes, classes, scores):
     if classes is None or len(classes) == 0:
         return
 
     labels = COCOLabels.all()
 
-    for b, c, s in zip(boxes, classes, scores):
-        x1, y1, w, h = b
+    for box, cls, score in zip(boxes, classes, scores):
+        x1, y1, w, h = box
+        x1 = int(x1)
+        y1 = int(y1)
         x2 = int(x1 + w)
         y2 = int(y1 + h)
 
-        print("{}: {}".format(labels[c], s))
-        cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
+        print("Class: {}, Score: {}".format(labels[cls], score))
+        cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 1, cv2.LINE_AA)
 
-    cv2.imwrite("out.png", orig)
+        text = '{0} {1:.2f}'.format(labels[cls], score)
+        image = _draw_label(image, text, (255, 0, 0), (x1, y1))
+
+    cv2.imwrite("out.png", image)
 
 
 inputs = Input(shape=(None, None, 3))
@@ -110,4 +135,7 @@ img /= 255.0
 img = np.expand_dims(img, axis=0)
 
 b, c, s = handle_predictions(model.predict([img]))
-draw_boxes(b, c, s)
+
+# NOTE: Notice that we are passing in the _original_ image here, not `img`
+# NOTE: that has been transformed and have its axis expanded (for batch size)
+draw_boxes(orig, b, c, s)
