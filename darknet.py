@@ -209,7 +209,7 @@ def _build_yolo_layer(x, block, layers, outputs, ptr, config):
     # Anchors used based on mask indices
     anchors = [a for a in block['anchors'].split(',  ')]
     anchors = [anchors[i] for i in range(len(anchors)) if i in masks]
-    anchors = [tuple([int(a) for a in anchor.split(',')]) for anchor in anchors]
+    anchors = [[int(a) for a in anchor.split(',')] for anchor in anchors]
     classes = int(block['classes'])
 
     x = YOLOLayer(num_classes=classes, anchors=anchors, input_dims=(config['width'], config['height']))(x)

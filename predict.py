@@ -7,45 +7,8 @@ import numpy as np
 
 from data.COCOLabels import COCOLabels
 
-inputs = Input(shape=(None, None, 3))
-outputs, config = darknet_base(inputs)
 
-model = Model(inputs, outputs)
-model.summary()
-
-plot(model, to_file='utils/model.png', show_shapes=True)
-
-# Feed in one image
-
-orig = cv2.imread('utils/dog-cycle-car.png')
-orig = cv2.resize(orig, (config['width'], config['height']))
-
-img = orig.astype(np.float32)
-img = img[:, :, ::-1]  # BGR -> RGB
-img /= 255.0
-img = np.expand_dims(img, axis=0)
-
-predictions = model.predict([img])
-
-
-def iou(box1, box2):
-    b1_x0, b1_y0, b1_x1, b1_y1 = box1
-    b2_x0, b2_y0, b2_x1, b2_y1 = box2
-
-    int_x0 = max(b1_x0, b2_x0)
-    int_y0 = max(b1_y0, b2_y0)
-    int_x1 = min(b1_x1, b2_x1)
-    int_y1 = min(b1_y1, b2_y1)
-
-    int_area = (int_x1 - int_x0) * (int_y1 - int_y0)
-
-    b1_area = (b1_x1 - b1_x0) * (b1_y1 - b1_y0)
-    b2_area = (b2_x1 - b2_x0) * (b2_y1 - b2_y0)
-
-    return int_area / (b1_area + b2_area - int_area + 1e-05)
-
-
-def predict(predictions, confidence=0.6, iou_threshold=0.5):
+def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
     boxes = predictions[:, :, :4]
     box_confidences = np.expand_dims(predictions[:, :, 4], -1)
     box_class_probs = predictions[:, :, 5:]
@@ -100,23 +63,51 @@ def predict(predictions, confidence=0.6, iou_threshold=0.5):
         nclasses.append(c[keep])
         nscores.append(s[keep])
 
-    print(nclasses)
+    if nboxes:
+        boxes = np.concatenate(nboxes)
+        classes = np.concatenate(nclasses)
+        scores = np.concatenate(nscores)
 
-    for boxes in nboxes:
-        for b in boxes:
-            x, y, w, h = b
+        return boxes, classes, scores
 
-            x1 = int(x / 2)
-            y1 = int(y / 2)
-            x2 = int(x1 + w)
-            y2 = int(y1 + h)
+    else:
+        return None, None, None
 
-            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+def draw_boxes(boxes, classes, scores):
+    if classes is None or len(classes) == 0:
+        return
+
+    labels = COCOLabels.all()
+
+    for b, c, s in zip(boxes, classes, scores):
+        x1, y1, w, h = b
+        x2 = int(x1 + w)
+        y2 = int(y1 + h)
+
+        print("{}: {}".format(labels[c], s))
+        cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
 
     cv2.imwrite("out.png", orig)
 
-    return nboxes, nclasses, nscores
 
+inputs = Input(shape=(None, None, 3))
+outputs, config = darknet_base(inputs)
 
+model = Model(inputs, outputs)
+model.summary()
 
-predict(predictions)
+plot(model, to_file='utils/model.png', show_shapes=True)
+
+# Feed in one image
+
+orig = cv2.imread('utils/dog-cycle-car.png')
+orig = cv2.resize(orig, (config['width'], config['height']))
+
+img = orig.astype(np.float32)
+img = img[:, :, ::-1]  # BGR -> RGB
+img /= 255.0
+img = np.expand_dims(img, axis=0)
+
+b, c, s = handle_predictions(model.predict([img]))
+draw_boxes(b, c, s)

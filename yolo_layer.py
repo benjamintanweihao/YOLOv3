@@ -52,7 +52,10 @@ class YOLOLayer(tf.keras.layers.Layer):
         box_xy *= stride
         box_wh *= stride
 
-        return tf.keras.layers.Concatenate(axis=2)([box_xy, box_xy, objectness, class_scores])
+        # Convert centoids to top left coordinates
+        box_xy -= box_wh / 2
+
+        return tf.keras.layers.Concatenate(axis=2)([box_xy, box_wh, objectness, class_scores])
 
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
