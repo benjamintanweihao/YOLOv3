@@ -1,19 +1,15 @@
 import os
-from collections import defaultdict
 
 import numpy as np
-from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, \
-    LeakyReLU, UpSampling2D
+    LeakyReLU, UpSampling2D, ZeroPadding2D
 from tensorflow.keras.regularizers import l2
-from tensorflow.python.keras.layers import ZeroPadding2D
-from tensorflow.keras.utils import plot_model as plot
 import tensorflow as tf
 import tensorflow.keras.backend as K
-import cv2
 
 from utils.parser import Parser
 from yolo_layer import YOLOLayer
+
 
 # TODO: It seems like turning on eager execution always gives different values during
 # TODO: inference. Weirdly, it also loads the network very fast compared to non-eager.
@@ -21,6 +17,8 @@ from yolo_layer import YOLOLayer
 # TODO: this.
 # tf.enable_eager_execution()
 
+
+# Read weights
 # NOTE: The original Darknet parser is at
 # NOTE: https://github.com/pjreddie/darknet/blob/master/src/parser.c
 weights_file = open('cfg/yolov3.weights', 'rb')
@@ -38,7 +36,7 @@ def darknet_base(inputs):
     Builds Darknet53 by reading the YOLO configuration file
 
     :param inputs: Input tensor
-    :return: A list of output (YOLO) layers and a dict containing a ptr to the weights file and network config
+    :return: A list of output (YOLO) layers and the network config
     """
     path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
     blocks = Parser.parse_cfg(path)
@@ -70,7 +68,9 @@ def darknet_base(inputs):
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
 
-    return tf.keras.layers.Concatenate(axis=1)(yolo_layers), {'ptr': ptr, 'config': config}
+    _verify_weights_completed_consumed(ptr)
+
+    return tf.keras.layers.Concatenate(axis=1)(yolo_layers), config
 
 
 def _read_net_config(block):
@@ -94,7 +94,6 @@ def _build_conv_layer(x, block, layers, outputs, ptr):
 
     # Darknet serializes convolutional weights as:
     # [bias/beta, [gamma, mean, variance], conv_weights]
-
     prev_layer_shape = K.int_shape(x)
     weights_shape = (kernel_size, kernel_size, prev_layer_shape[-1], filters)
     darknet_w_shape = (filters, weights_shape[2], kernel_size, kernel_size)
@@ -221,126 +220,12 @@ def _build_yolo_layer(x, block, layers, outputs, ptr, config):
     return x, layers, outputs, ptr
 
 
-def verify_weights_completed_consumed(aux):
+def _verify_weights_completed_consumed(ptr):
     remaining_weights = len(weights_file.read()) // 4
     weights_file.close()
-    percentage = int((aux['ptr'] / (aux['ptr'] + remaining_weights)) * 100)
+    percentage = int((ptr / (ptr + remaining_weights)) * 100)
     print('Read {}% from Darknet weights.'.format(percentage))
     if remaining_weights > 0:
         print('Warning: {} unused weights'.format(remaining_weights))
     else:
         print('Weights loaded successfully!')
-
-
-inputs = Input(shape=(None, None, 3))
-outputs, aux = darknet_base(inputs)
-
-verify_weights_completed_consumed(aux)
-
-model = Model(inputs, outputs)
-model.summary()
-
-plot(model, to_file='utils/model.png', show_shapes=True)
-
-# Feed in one image
-
-orig = cv2.imread('utils/dog-cycle-car.png')
-orig = cv2.resize(orig, (aux['config']['width'], aux['config']['height']))
-
-img = orig.astype(np.float32)
-img = img[:, :, ::-1]  # BGR -> RGB
-img /= 255.0
-img = np.expand_dims(img, axis=0)
-
-predictions = model.predict([img])
-
-
-def iou(box1, box2):
-    b1_x0, b1_y0, b1_x1, b1_y1 = box1
-    b2_x0, b2_y0, b2_x1, b2_y1 = box2
-
-    int_x0 = max(b1_x0, b2_x0)
-    int_y0 = max(b1_y0, b2_y0)
-    int_x1 = min(b1_x1, b2_x1)
-    int_y1 = min(b1_y1, b2_y1)
-
-    int_area = (int_x1 - int_x0) * (int_y1 - int_y0)
-
-    b1_area = (b1_x1 - b1_x0) * (b1_y1 - b1_y0)
-    b2_area = (b2_x1 - b2_x0) * (b2_y1 - b2_y0)
-
-    return int_area / (b1_area + b2_area - int_area + 1e-05)
-
-
-def predict(predictions, confidence=0.5, iou_threshold=0.4):
-    boxes = predictions[:, :, :4]
-    box_confidences = np.expand_dims(predictions[:, :, 5], -1)
-    box_class_probs = predictions[:, :, 5:]
-
-    box_scores = box_confidences * box_class_probs
-    box_classes = np.argmax(box_scores, axis=-1)
-    box_class_scores = np.max(box_scores, axis=-1)
-    pos = np.where(box_class_scores >= confidence)
-
-    boxes = boxes[pos]
-    classes = box_classes[pos]
-    scores = box_class_scores[pos]
-
-    nboxes, nclasses, nscores = [], [], []
-
-    # TODO: Check if scaled properly
-    for c in set(classes):
-        inds = np.where(classes == c)
-        b = boxes[inds]
-        c = classes[inds]
-        s = scores[inds]
-
-        x = b[:, 0]
-        y = b[:, 1]
-        w = b[:, 2]
-        h = b[:, 3]
-
-        areas = w * h
-        order = s.argsort()[::-1]
-
-        keep = []
-        while order.size > 0:
-            i = order[0]
-            keep.append(i)
-
-            xx1 = np.maximum(x[i], x[order[1:]])
-            yy1 = np.maximum(y[i], y[order[1:]])
-            xx2 = np.minimum(x[i] + w[i], x[order[1:]] + w[order[1:]])
-            yy2 = np.minimum(y[i] + h[i], y[order[1:]] + h[order[1:]])
-
-            w1 = np.maximum(0.0, xx2 - xx1 + 1)
-            h1 = np.maximum(0.0, yy2 - yy1 + 1)
-
-            inter = w1 * h1
-            ovr = inter / (areas[i] + areas[order[1:]] - inter)
-            inds = np.where(ovr <= iou_threshold)[0]
-            order = order[inds + 1]
-
-        keep = np.array(keep)
-
-        nboxes.append(b[keep])
-        nclasses.append(c[keep])
-        nscores.append(s[keep])
-
-    for boxes in nboxes:
-        for b in boxes:
-            x, y, w, h = b
-
-            x1 = int(x / 2)
-            y1 = int(y / 2)
-            x2 = int(x1 + w)
-            y2 = int(y1 + h)
-
-            cv2.rectangle(orig, (x1, y1), (x2, y2), (255, 0, 0), 1)
-
-    cv2.imwrite("out.png", orig)
-
-    return nboxes, nclasses, nscores
-
-
-predict(predictions)

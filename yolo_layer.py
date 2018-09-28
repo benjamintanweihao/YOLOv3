@@ -17,14 +17,11 @@ class YOLOLayer(tf.keras.layers.Layer):
         num_anchors = len(self.anchors)
 
         prediction = tf.reshape(prediction,
-                                shape=(batch_size, self.num_classes + 5, num_anchors * grid_size * grid_size))
-        prediction = tf.transpose(prediction, [0, 2, 1])
-        prediction = tf.reshape(prediction,
                                 shape=(batch_size, num_anchors * grid_size * grid_size, self.num_classes + 5))
 
-        box_xy = tf.sigmoid(prediction[:, :, :2])  # t_x (box x and y coordinates)
+        box_xy = tf.sigmoid(prediction[:, :, :2])     # t_x (box x and y coordinates)
         objectness = tf.sigmoid(prediction[:, :, 4])  # p_o (objectness score)
-        objectness = tf.expand_dims(objectness, 2)  # To make the same number of values for axis 0 and 1
+        objectness = tf.expand_dims(objectness, 2)    # To make the same number of values for axis 0 and 1
 
         grid = tf.range(grid_size)
         a, b = tf.meshgrid(grid, grid)
@@ -38,7 +35,6 @@ class YOLOLayer(tf.keras.layers.Layer):
         x_y_offset = tf.expand_dims(x_y_offset, 0)
         x_y_offset = tf.cast(x_y_offset, dtype='float32')
 
-        # Note the `:2` (adding x, y coordinates together)
         box_xy += x_y_offset
 
         # Log space transform of the height and width
