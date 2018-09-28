@@ -1,10 +1,16 @@
-# :unicorn: YOLOv3 Implementation in TensorFlow 1.1x and Keras :unicorn:
+# :unicorn: YOLOv3 Implementation in TensorFlow 1.1x + Keras :unicorn:
 
 Download weights into the `cfg` directory:
 
 ```
 cd cfg
 wget https://pjreddie.com/media/files/yolov3.weights
+```
+
+Install OpenCV:
+
+```
+pip install opencv-python
 ```
 
 - [X] YOLO configuration parser
@@ -14,7 +20,7 @@ wget https://pjreddie.com/media/files/yolov3.weights
 - [X] Handle YOLO layer (Detection Layer)
 - [X] Non-Maximal Supression
 - [X] Colorful boxes with labels and scores
-- [ ] Test out on a webcam
+- [X] Test out on a Webcam
 - [ ] Check dependencies
 
 # TODO

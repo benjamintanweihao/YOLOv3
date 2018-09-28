@@ -1,11 +1,7 @@
-from tensorflow.keras import Input, Model
-from tensorflow.keras.utils import plot_model as plot
-from darknet import darknet_base
-
 import cv2
 import numpy as np
 
-from data.COCOLabels import COCOLabels
+from data.coco_labels import COCOLabels
 
 
 def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
@@ -116,27 +112,3 @@ def draw_boxes(image, boxes, classes, scores):
 
     cv2.imwrite("out.png", image)
 
-
-inputs = Input(shape=(None, None, 3))
-outputs, config = darknet_base(inputs)
-
-model = Model(inputs, outputs)
-model.summary()
-
-plot(model, to_file='utils/model.png', show_shapes=True)
-
-# Feed in one image
-
-orig = cv2.imread('utils/dog-cycle-car.png')
-orig = cv2.resize(orig, (config['width'], config['height']))
-
-img = orig.astype(np.float32)
-img = img[:, :, ::-1]  # BGR -> RGB
-img /= 255.0
-img = np.expand_dims(img, axis=0)
-
-b, c, s = handle_predictions(model.predict([img]))
-
-# NOTE: Notice that we are passing in the _original_ image here, not `img`
-# NOTE: that has been transformed and have its axis expanded (for batch size)
-draw_boxes(orig, b, c, s)
