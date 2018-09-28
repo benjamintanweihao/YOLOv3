@@ -99,6 +99,7 @@ def draw_boxes(image, boxes, classes, scores):
         return
 
     labels = COCOLabels.all()
+    colors = COCOLabels.colors()
 
     for box, cls, score in zip(boxes, classes, scores):
         x1, y1, w, h = box
@@ -108,10 +109,10 @@ def draw_boxes(image, boxes, classes, scores):
         y2 = int(y1 + h)
 
         print("Class: {}, Score: {}".format(labels[cls], score))
-        cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 1, cv2.LINE_AA)
+        cv2.rectangle(image, (x1, y1), (x2, y2), colors[cls], 1, cv2.LINE_AA)
 
         text = '{0} {1:.2f}'.format(labels[cls], score)
-        image = _draw_label(image, text, (255, 0, 0), (x1, y1))
+        image = _draw_label(image, text, colors[cls], (x1, y1))
 
     cv2.imwrite("out.png", image)
 

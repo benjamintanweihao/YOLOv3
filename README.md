@@ -13,7 +13,9 @@ wget https://pjreddie.com/media/files/yolov3.weights
 - [X] Load YOLO pre-trained weights
 - [X] Handle YOLO layer (Detection Layer)
 - [X] Non-Maximal Supression
-- [ ] Colorful boxes with labels and scores
+- [X] Colorful boxes with labels and scores
+- [ ] Test out on a webcam
+- [ ] Check dependencies
 
 # TODO
 
