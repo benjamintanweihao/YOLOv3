@@ -24,11 +24,11 @@ pip install opencv-python
 - [X] Check architecture against a well-known implementation
 - [X] Load YOLO pre-trained weights
 - [X] Handle YOLO layer (Detection Layer)
-- [X] Non-Maximal Supression
+- [X] Non-Maximal Suppression
 - [X] Colorful boxes with labels and scores
-- [X] Test out on a Webcam
+- [X] Test out on a Web Cam
 - [ ] Instructions for running the project
-- [ ] Check dependencies
+- [X] Check dependencies
 
 # TODO
 

@@ -6,6 +6,7 @@ dependencies:
   - absl-py=0.4.0=py36h28b3542_0
   - astor=0.7.1=py36_0
   - blas=1.0=mkl
+  - bzip2=1.0.6=h14c3975_5
   - ca-certificates=2018.03.07=0
   - cairo=1.14.12=h8948797_3
   - certifi=2018.8.24=py36_1
@@ -13,7 +14,9 @@ dependencies:
   - cudnn=7.2.1=cuda9.2_0
   - cupti=9.2.148=0
   - expat=2.2.6=he6710b0_0
+  - ffmpeg=4.0=hcdf2ecd_0
   - fontconfig=2.13.0=h9420a91_0
+  - freeglut=3.0.0=hf484d3e_5
   - freetype=2.9.1=h8a8886c_1
   - fribidi=1.0.5=h7b6447c_0
   - gast=0.2.0=py36_0
@@ -22,18 +25,24 @@ dependencies:
   - graphviz=2.40.1=h21bd128_2
   - grpcio=1.12.1=py36hdbcaa40_0
   - harfbuzz=1.8.8=hffaf4a1_0
+  - hdf5=1.10.2=hba1933b_1
   - icu=58.2=h9c2bf20_1
   - intel-openmp=2018.0.3=0
+  - jasper=2.0.14=h07fcdf6_1
   - jpeg=9b=h024ee3a_2
   - libedit=3.1.20170329=h6b74fdf_2
   - libffi=3.2.1=hd88cf55_4
   - libgcc-ng=8.2.0=hdf63c60_1
   - libgfortran-ng=7.3.0=hdf63c60_0
+  - libglu=9.0.0=hf484d3e_1
+  - libopencv=3.4.2=hb342d67_1
+  - libopus=1.2.1=hb9ed12e_0
   - libpng=1.6.34=hb9fc6fc_0
   - libprotobuf=3.6.0=hdbcaa40_0
   - libstdcxx-ng=8.2.0=hdf63c60_1
   - libtiff=4.0.9=he85c1e1_2
   - libuuid=1.0.3=h1bed415_2
+  - libvpx=1.7.0=h439df22_0
   - libxcb=1.13=h1bed415_1
   - libxml2=2.9.8=h26e45fe_1
   - markdown=2.6.11=py36_0
@@ -49,10 +58,13 @@ dependencies:
   - pip=10.0.1=py36_0
   - pixman=0.34.0=hceecf20_3
   - protobuf=3.6.0=py36hf484d3e_0
+  - py-opencv=3.4.2=py36hb342d67_1
   - pydot=1.2.4=py36_0
   - pyparsing=2.2.0=py36_1
   - python=3.6.6=hc3d631a_0
   - readline=7.0=h7b6447c_5
+  - scikit-learn=0.19.1=py36hedc7406_0
+  - scipy=1.1.0=py36hfa4b5c9_1
   - setuptools=40.2.0=py36_0
   - six=1.11.0=py36_1
   - sqlite=3.24.0=h84994c4_0
@@ -62,8 +74,12 @@ dependencies:
   - tensorflow-gpu=1.10.0=hf154084_0
   - termcolor=1.1.0=py36_1
   - tk=8.6.8=hbc83047_0
+  - tqdm=4.25.0=py36h28b3542_0
   - werkzeug=0.14.1=py36_0
   - wheel=0.31.1=py36_0
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=ha838bed_2
+  - pip:
+    - imutils==0.5.1
+    - opencv-python==3.4.3.18
 prefix: /home/benjamintan/anaconda3/envs/tf-1.10
