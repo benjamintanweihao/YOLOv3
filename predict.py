@@ -18,8 +18,22 @@ def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
     classes = box_classes[pos]
     scores = box_class_scores[pos]
 
-    nboxes, nclasses, nscores = [], [], []
+    # Boxes, Classes and Scores returned from NMS
+    n_boxes, n_classes, n_scores = nms_boxes(boxes, classes, scores, iou_threshold)
 
+    if n_boxes:
+        boxes = np.concatenate(n_boxes)
+        classes = np.concatenate(n_classes)
+        scores = np.concatenate(n_scores)
+
+        return boxes, classes, scores
+
+    else:
+        return None, None, None
+
+
+def nms_boxes(boxes, classes, scores, iou_threshold):
+    nboxes, nclasses, nscores = [], [], []
     # TODO: Check if scaled properly
     for c in set(classes):
         inds = np.where(classes == c)
@@ -58,16 +72,7 @@ def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
         nboxes.append(b[keep])
         nclasses.append(c[keep])
         nscores.append(s[keep])
-
-    if nboxes:
-        boxes = np.concatenate(nboxes)
-        classes = np.concatenate(nclasses)
-        scores = np.concatenate(nscores)
-
-        return boxes, classes, scores
-
-    else:
-        return None, None, None
+    return nboxes, nclasses, nscores
 
 
 def _draw_label(image, text, color, coords):

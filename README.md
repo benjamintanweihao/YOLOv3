@@ -27,6 +27,7 @@ pip install opencv-python
 - [X] Non-Maximal Suppression
 - [X] Colorful boxes with labels and scores
 - [X] Test out on a Web Cam
+- [ ] Use original scale of input image
 - [ ] Instructions for running the project
 - [X] Check dependencies
 
