@@ -12,7 +12,10 @@ model = Model(inputs, outputs)
 
 vidcap = cv2.VideoCapture('data/demo.mp4')
 success, image = vidcap.read()
-count = 0
+
+size = (int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, size)
 
 
 def predict(model, frame):
@@ -25,7 +28,6 @@ def predict(model, frame):
     return np.array(image)
 
 
-out = cv2.VideoWriter('output.mp4', -1, 20.0, tuple(reversed(image.shape[:2])))
 
 while success:
     output_image = predict(model, image)
