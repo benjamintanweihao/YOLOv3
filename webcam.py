@@ -28,7 +28,7 @@ def predict(model, frame):
 
     boxes, classes, scores = handle_predictions(model.predict([image_data]))
 
-    draw_boxes(image, boxes, classes, scores)
+    draw_boxes(image, boxes, classes, scores, config)
 
     return np.array(image)
 

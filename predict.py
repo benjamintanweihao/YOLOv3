@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 
-from data.coco_labels import COCOLabels
-
 
 def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
     boxes = predictions[:, :, :4]
@@ -34,7 +32,6 @@ def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
 
 def nms_boxes(boxes, classes, scores, iou_threshold):
     nboxes, nclasses, nscores = [], [], []
-    # TODO: Check if scaled properly
     for c in set(classes):
         inds = np.where(classes == c)
         b = boxes[inds]
@@ -95,19 +92,26 @@ def _draw_label(image, text, color, coords):
     return image
 
 
-def draw_boxes(image, boxes, classes, scores):
+def draw_boxes(image, boxes, classes, scores, config):
     if classes is None or len(classes) == 0:
         return
 
-    labels = COCOLabels.all()
-    colors = COCOLabels.colors()
+    height, width = image.shape[:2]
+
+    labels = config['labels']
+    colors = config['colors']
+
+    ratio_x = width / config['width']
+    ratio_y = height / config['height']
 
     for box, cls, score in zip(boxes, classes, scores):
-        x1, y1, w, h = box
-        x1 = int(x1)
-        y1 = int(y1)
-        x2 = int(x1 + w)
-        y2 = int(y1 + h)
+        x, y, w, h = box
+
+        # Rescale box coordinates
+        x1 = int(x * ratio_x)
+        y1 = int(y * ratio_y)
+        x2 = int((x + w) * ratio_x)
+        y2 = int((y + h) * ratio_y)
 
         print("Class: {}, Score: {}".format(labels[cls], score))
         cv2.rectangle(image, (x1, y1), (x2, y2), colors[cls], 1, cv2.LINE_AA)
@@ -116,4 +120,3 @@ def draw_boxes(image, boxes, classes, scores):
         image = _draw_label(image, text, colors[cls], (x1, y1))
 
     cv2.imwrite("out.png", image)
-

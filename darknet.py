@@ -7,6 +7,7 @@ from tensorflow.keras.regularizers import l2
 import tensorflow as tf
 import tensorflow.keras.backend as K
 
+from data.coco_labels import COCOLabels
 from utils.parser import Parser
 from yolo_layer import YOLOLayer
 
@@ -78,10 +79,16 @@ def _read_net_config(block):
     height = int(block['height'])
     channels = int(block['channels'])
 
+    labels = COCOLabels.all()
+    colors = COCOLabels.colors()
+
     return {
         'width': width,
         'height': height,
-        'channels': channels}
+        'channels': channels,
+        'labels': labels,
+        'colors': colors
+    }
 
 
 def _build_conv_layer(x, block, layers, outputs, ptr):

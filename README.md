@@ -39,7 +39,9 @@ python webcam.py
 - [X] Check dependencies
 - [X] Dependencies for CPU and GPU
 - [X] Instructions for running the project
-- [ ] Use original scale of input image
+- [X] Use original scale of input image
+- [ ] Try this out on a Raspi3
+- [ ] Tensorflow.js?
 
 # TODO
 
