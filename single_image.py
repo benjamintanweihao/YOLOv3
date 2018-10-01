@@ -18,7 +18,8 @@ plot(model, to_file='utils/model.png', show_shapes=True)
 
 # Feed in one image
 
-orig = cv2.imread('data/dog-cycle-car.png')
+# orig = cv2.imread('data/dog-cycle-car.png')
+orig = cv2.imread('data/keong_saik.jpg')
 img = cv2.resize(orig, (config['width'], config['height']))
 
 img = img.astype(np.float32)
