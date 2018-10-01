@@ -1,9 +1,9 @@
-name: yolov3-gpu
+name: yolov3-cpu
 channels:
   - defaults
 dependencies:
   - python = 3.6
-  - tensorflow-gpu >= 1.10.0
+  - tensorflow >= 1.10.0
   - graphviz >= 2.40.1
   - scikit-learn
   - scikit-image

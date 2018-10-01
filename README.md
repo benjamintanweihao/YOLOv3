@@ -4,7 +4,14 @@
 
 ![](https://i.imgur.com/Phozn0T.png)
 
-# Installation and Setup
+# Quick Start
+
+Create `conda` environment depending on whether you have a supported GPU or not:
+
+```
+conda env create -f yolov3-[c|g]pu.yml
+source activate yolov3-[c|g]pu.yml
+```
 
 Download weights into the `cfg` directory:
 
@@ -13,11 +20,13 @@ cd cfg
 wget https://pjreddie.com/media/files/yolov3.weights
 ```
 
-Install OpenCV:
+To see it live on your webcam:
 
 ```
-pip install opencv-python
+python webcam.py
 ```
+
+# Progress
 
 - [X] YOLO configuration parser
 - [X] Build YOLO model
@@ -27,9 +36,10 @@ pip install opencv-python
 - [X] Non-Maximal Suppression
 - [X] Colorful boxes with labels and scores
 - [X] Test out on a Web Cam
-- [ ] Use original scale of input image
-- [ ] Instructions for running the project
 - [X] Check dependencies
+- [X] Dependencies for CPU and GPU
+- [X] Instructions for running the project
+- [ ] Use original scale of input image
 
 # TODO
 
