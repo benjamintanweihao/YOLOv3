@@ -1,10 +1,10 @@
 # :unicorn: YOLOv3 Implementation in TensorFlow 1.1x + Keras :unicorn:
 
-# How it Looks Like
+## How it Looks Like
 
 ![](https://i.imgur.com/Phozn0T.png)
 
-# Quick Start
+## Quick Start
 
 Create `conda` environment depending on whether you have a supported GPU or not:
 
@@ -20,13 +20,24 @@ cd cfg
 wget https://pjreddie.com/media/files/yolov3.weights
 ```
 
-To see it live on your webcam:
+### Demo on Single Image:
+
+```
+python single_image.py
+```
+
+The output is stored on `out.png` in the root folder.
+
+### Demo on Web Cam:
+
+
+To see it live on your Web Cam:
 
 ```
 python webcam.py
 ```
 
-# Progress
+## Progress
 
 - [X] YOLO configuration parser
 - [X] Build YOLO model
@@ -41,13 +52,9 @@ python webcam.py
 - [X] Instructions for running the project
 - [X] Use original scale of input image
 - [ ] Try this out on a Raspi3
-- [ ] Tensorflow.js?
+- [ ] Tensorflow.js (¯\_(ツ)_/¯)
 
-# TODO
-
-- [ ] Read `decay` and `momentum` from `net`
-
-# Credits
+## Credits
 
 * [Series: YOLO Object Detector in PyTorch by Ayoosh Kathuria](https://blog.paperspace.com/tag/series-yolo/)
 * [Implementing YOLO v3 in Tensorflow (TF-Slim) by Paweł Kapica](https://itnext.io/implementing-yolo-v3-in-tensorflow-tf-slim-c3c55ff59dbe)

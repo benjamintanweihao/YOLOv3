@@ -52,7 +52,7 @@ def darknet_base(inputs):
             config = _read_net_config(block)
 
         elif block_type == 'convolutional':
-            x, layers, yolo_layers, ptr = _build_conv_layer(x, block, layers, yolo_layers, ptr)
+            x, layers, yolo_layers, ptr = _build_conv_layer(x, block, layers, yolo_layers, ptr, config)
 
         elif block_type == 'shortcut':
             x, layers, yolo_layers, ptr = _build_shortcut_layer(x, block, layers, yolo_layers, ptr)
@@ -78,6 +78,7 @@ def _read_net_config(block):
     width = int(block['width'])
     height = int(block['height'])
     channels = int(block['channels'])
+    decay = float(block['decay'])
 
     labels = COCOLabels.all()
     colors = COCOLabels.colors()
@@ -87,11 +88,12 @@ def _read_net_config(block):
         'height': height,
         'channels': channels,
         'labels': labels,
-        'colors': colors
+        'colors': colors,
+        'decay': decay
     }
 
 
-def _build_conv_layer(x, block, layers, outputs, ptr):
+def _build_conv_layer(x, block, layers, outputs, ptr, config):
     stride = int(block['stride'])
     filters = int(block['filters'])
     kernel_size = int(block['size'])
@@ -156,7 +158,7 @@ def _build_conv_layer(x, block, layers, outputs, ptr):
                padding=padding,
                use_bias=not use_batch_normalization,
                activation='linear',
-               kernel_regularizer=l2(5e-4),
+               kernel_regularizer=l2(config['decay']),
                weights=conv_weights)(x)
 
     if use_batch_normalization:
