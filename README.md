@@ -2,7 +2,7 @@
 
 ## How it Looks Like
 
-![](https://i.imgur.com/Phozn0T.png)
+![](https://i.imgur.com/iBWGCif.png)
 
 ## Quick Start
 
