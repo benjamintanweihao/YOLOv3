@@ -51,6 +51,7 @@ python webcam.py
 - [X] Dependencies for CPU and GPU
 - [X] Instructions for running the project
 - [X] Use original scale of input image
+- [ ] Figure out Eager Execution + Loading Weights
 - [ ] Try this out on a Raspi3
 - [ ] Tensorflow.js (¯\_(ツ)_/¯)
 

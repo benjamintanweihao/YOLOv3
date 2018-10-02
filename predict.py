@@ -2,6 +2,18 @@ import cv2
 import numpy as np
 
 
+def predict(model, orig, config, confidence=0.5, iou_threshold=0.4):
+    image, image_data = preprocess_image(orig, model_image_size=(config['width'], config['height']))
+
+    boxes, classes, scores = handle_predictions(model.predict([image_data]),
+                                                confidence=confidence,
+                                                iou_threshold=iou_threshold)
+
+    draw_boxes(image, boxes, classes, scores, config)
+
+    return np.array(image)
+
+
 def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
     boxes = predictions[:, :, :4]
     box_confidences = np.expand_dims(predictions[:, :, 4], -1)
@@ -28,6 +40,15 @@ def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
 
     else:
         return None, None, None
+
+
+def preprocess_image(img_arr, model_image_size):
+    image = img_arr.astype('uint8')
+    resized_image = cv2.resize(image, tuple(reversed(model_image_size)), cv2.INTER_AREA)
+    image_data = resized_image.astype('float32')
+    image_data /= 255.
+    image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
+    return image, image_data
 
 
 def nms_boxes(boxes, classes, scores, iou_threshold):
@@ -72,7 +93,7 @@ def nms_boxes(boxes, classes, scores, iou_threshold):
     return nboxes, nclasses, nscores
 
 
-def _draw_label(image, text, color, coords):
+def draw_label(image, text, color, coords):
     font = cv2.FONT_HERSHEY_PLAIN
     font_scale = 1.
     (text_width, text_height) = cv2.getTextSize(text, font, fontScale=font_scale, thickness=1)[0]
@@ -117,6 +138,6 @@ def draw_boxes(image, boxes, classes, scores, config):
         cv2.rectangle(image, (x1, y1), (x2, y2), colors[cls], 1, cv2.LINE_AA)
 
         text = '{0} {1:.2f}'.format(labels[cls], score)
-        image = _draw_label(image, text, colors[cls], (x1, y1))
+        image = draw_label(image, text, colors[cls], (x1, y1))
 
     cv2.imwrite("out.png", image)

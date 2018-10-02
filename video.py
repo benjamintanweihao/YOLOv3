@@ -1,10 +1,8 @@
 import cv2
-import numpy as np
 
 from tensorflow.keras import Input, Model
 from darknet import darknet_base
-from predict import handle_predictions, draw_boxes
-from utils.preprocessor import preprocess_image
+from predict import predict
 
 inputs = Input(shape=(None, None, 3))
 outputs, config = darknet_base(inputs)
@@ -18,19 +16,8 @@ fourcc = cv2.VideoWriter_fourcc(*'DIVX')
 out = cv2.VideoWriter('output.avi', fourcc, 20.0, size)
 
 
-def predict(model, frame):
-    image, image_data = preprocess_image(frame, model_image_size=(config['width'], config['height']))
-
-    boxes, classes, scores = handle_predictions(model.predict([image_data]))
-
-    draw_boxes(image, boxes, classes, scores, config)
-
-    return np.array(image)
-
-
-
 while success:
-    output_image = predict(model, image)
+    output_image = predict(model, image, config)
     out.write(output_image)
     success, image = vidcap.read()
 
