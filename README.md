@@ -54,6 +54,8 @@ python webcam.py
 - [X] Instructions for running the project
 - [X] Use original scale of input image
 - [ ] Figure out Eager Execution + Loading Weights
+- [ ] Investigate Tiny YOLOv3
+- [ ] Investigate Quantization / Smaller Weights
 - [ ] Try this out on a Raspi3
 - [ ] Tensorflow.js (¯\_(ツ)_/¯)
 
