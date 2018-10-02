@@ -2,7 +2,9 @@
 
 ## How it Looks Like
 
-![](https://i.imgur.com/iBWGCif.png)
+[![](https://img.youtube.com/vi/D_WXxjgQzKk/0.jpg)](https://youtu.be/D_WXxjgQzKk)
+
+[Watch the demo](https://youtu.be/D_WXxjgQzKk)
 
 ## Quick Start
 
