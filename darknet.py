@@ -8,6 +8,7 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 from data.coco_labels import COCOLabels
+from definitions import ROOT_DIR
 from utils.parser import Parser
 from yolo_layer import YOLOLayer
 
@@ -22,7 +23,7 @@ from yolo_layer import YOLOLayer
 # Read weights
 # NOTE: The original Darknet parser is at
 # NOTE: https://github.com/pjreddie/darknet/blob/master/src/parser.c
-weights_file = open('cfg/yolov3.weights', 'rb')
+weights_file = open(os.path.join(ROOT_DIR, 'cfg', 'yolov3.weights'), 'rb')
 major, minor, revision = np.ndarray(
     shape=(3,), dtype='int32', buffer=weights_file.read(12))
 if (major * 10 + minor) >= 2 and major < 1000 and minor < 1000:
@@ -39,7 +40,7 @@ def darknet_base(inputs):
     :param inputs: Input tensor
     :return: A list of output (YOLO) layers and the network config
     """
-    path = os.path.join(os.getcwd(), 'cfg', 'yolov3.cfg')
+    path = os.path.join(ROOT_DIR, 'cfg', 'yolov3.cfg')
     blocks = Parser.parse_cfg(path)
     x, layers, yolo_layers = inputs, [], []
     ptr = 0

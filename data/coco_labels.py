@@ -1,5 +1,6 @@
 import os
 
+from definitions import ROOT_DIR
 from utils.randomcolor import RandomColor
 
 
@@ -7,7 +8,7 @@ class COCOLabels:
 
     @staticmethod
     def all():
-        with open(os.path.join(os.getcwd(), 'data', 'coco.names')) as f:
+        with open(os.path.join(ROOT_DIR, 'data', 'coco.names')) as f:
             return [l.strip() for l in f.readlines()]
 
     @staticmethod
