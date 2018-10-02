@@ -57,7 +57,7 @@ python webcam.py
 - [ ] Investigate Tiny YOLOv3
 - [ ] Investigate Quantization / Smaller Weights
 - [ ] Try this out on a Raspi3
-- [ ] Tensorflow.js (¯\_(ツ)_/¯)
+- [ ] Tensorflow.js (¯\\_(ツ)_/¯)
 
 ## Credits
 
