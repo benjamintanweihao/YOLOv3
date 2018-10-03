@@ -14,6 +14,20 @@ def predict(model, orig, config, confidence=0.5, iou_threshold=0.4):
     return np.array(image)
 
 
+def predict_no_head(model, orig, config, confidence=0.5, iou_threshold=0.4):
+    image, image_data = preprocess_image(orig, model_image_size=(config['width'], config['height']))
+
+    predictions = np.concatenate(model.predict([image_data]), axis=1)
+
+    boxes, classes, scores = handle_predictions(predictions,
+                                                confidence=confidence,
+                                                iou_threshold=iou_threshold)
+
+    draw_boxes(image, boxes, classes, scores, config)
+
+    return np.array(image)
+
+
 def handle_predictions(predictions, confidence=0.6, iou_threshold=0.5):
     boxes = predictions[:, :, :4]
     box_confidences = np.expand_dims(predictions[:, :, 4], -1)

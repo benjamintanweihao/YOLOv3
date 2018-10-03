@@ -75,10 +75,13 @@ def darknet_base(inputs, include_yolo_head=True):
 
     if include_yolo_head:
         output_layers = yolo_layers
+        return tf.keras.layers.Concatenate(axis=1)(output_layers), config
     else:
         output_layers = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
 
-    return tf.keras.layers.Concatenate(axis=1)(output_layers), config
+        # NOTE: Apparently TFLite doesn't like Concatenate.
+        # return tf.keras.layers.Concatenate(axis=1)(output_layers), config
+        return output_layers, config
 
 
 def _read_net_config(block):
