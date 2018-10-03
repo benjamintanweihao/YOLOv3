@@ -19,9 +19,9 @@ class YOLOLayer(tf.keras.layers.Layer):
         prediction = tf.reshape(prediction,
                                 shape=(batch_size, num_anchors * grid_size * grid_size, self.num_classes + 5))
 
-        box_xy = tf.sigmoid(prediction[:, :, :2])     # t_x (box x and y coordinates)
+        box_xy = tf.sigmoid(prediction[:, :, :2])  # t_x (box x and y coordinates)
         objectness = tf.sigmoid(prediction[:, :, 4])  # p_o (objectness score)
-        objectness = tf.expand_dims(objectness, 2)    # To make the same number of values for axis 0 and 1
+        objectness = tf.expand_dims(objectness, 2)  # To make the same number of values for axis 0 and 1
 
         grid = tf.range(grid_size)
         a, b = tf.meshgrid(grid, grid)
@@ -67,3 +67,14 @@ class YOLOLayer(tf.keras.layers.Layer):
         shape = (batch_size, num_bboxes, self.num_classes + 5)
 
         return tf.TensorShape(shape)
+
+    def get_config(self):
+        base_config = super(YOLOLayer, self).get_config()
+        config = {
+            'num_classes': self.num_classes,
+            'anchors': self.anchors,
+            'input_dims': self.input_dims
+        }
+
+        return dict(list(base_config.items()) + list(config.items()))
+

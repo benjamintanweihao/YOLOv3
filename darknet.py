@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, \
-    LeakyReLU, UpSampling2D, ZeroPadding2D
+    Lambda, LeakyReLU, UpSampling2D, ZeroPadding2D
 from tensorflow.keras.regularizers import l2
 import tensorflow as tf
 import tensorflow.keras.backend as K
@@ -33,12 +33,13 @@ else:
 print('Weights Header: ', major, minor, revision, seen)
 
 
-def darknet_base(inputs):
+def darknet_base(inputs, include_yolo_head=True):
     """
     Builds Darknet53 by reading the YOLO configuration file
 
     :param inputs: Input tensor
-    :return: A list of output (YOLO) layers and the network config
+    :param include_yolo_head: Includes the YOLO head
+    :return: A list of output layers and the network config
     """
     path = os.path.join(ROOT_DIR, 'cfg', 'yolov3.cfg')
     blocks = Parser.parse_cfg(path)
@@ -72,7 +73,12 @@ def darknet_base(inputs):
 
     _verify_weights_completed_consumed(ptr)
 
-    return tf.keras.layers.Concatenate(axis=1)(yolo_layers), config
+    if include_yolo_head:
+        output_layers = yolo_layers
+    else:
+        output_layers = [layers[i - 1] for i in range(len(layers)) if layers[i] is None]
+
+    return tf.keras.layers.Concatenate(axis=1)(output_layers), config
 
 
 def _read_net_config(block):
@@ -178,7 +184,9 @@ def _build_conv_layer(x, block, layers, outputs, ptr, config):
 def _build_upsample_layer(x, block, layers, outputs, ptr):
     stride = int(block['stride'])
 
-    x = UpSampling2D(size=stride)(x)
+    # NOTE: Alternative way of defining Upsample2D
+    x = Lambda(lambda _x: tf.image.resize_bilinear(_x, (stride * tf.shape(_x)[1], stride * tf.shape(_x)[2])))(x)
+    # x = UpSampling2D(size=stride)(x)
     layers.append(x)
 
     return x, layers, outputs, ptr
