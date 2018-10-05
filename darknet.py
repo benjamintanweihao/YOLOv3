@@ -2,16 +2,16 @@ import os
 
 import numpy as np
 from tensorflow.keras.layers import Add, BatchNormalization, Concatenate, Conv2D, \
-    Lambda, LeakyReLU, UpSampling2D, ZeroPadding2D
+    Lambda, LeakyReLU, GlobalMaxPooling2D, UpSampling2D, ZeroPadding2D
 from tensorflow.keras.regularizers import l2
 import tensorflow as tf
 import tensorflow.keras.backend as K
+from tensorflow.python.keras.layers import MaxPool2D, MaxPooling2D
 
 from data.coco_labels import COCOLabels
 from definitions import ROOT_DIR
 from utils.parser import Parser
 from yolo_layer import YOLOLayer
-
 
 # TODO: It seems like turning on eager execution always gives different values during
 # TODO: inference. Weirdly, it also loads the network very fast compared to non-eager.
@@ -19,11 +19,12 @@ from yolo_layer import YOLOLayer
 # TODO: this.
 # tf.enable_eager_execution()
 
+YOLO_VERSION = 'yolov3-tiny'  # yolov3 or yolov3-tiny
 
 # Read weights
 # NOTE: The original Darknet parser is at
 # NOTE: https://github.com/pjreddie/darknet/blob/master/src/parser.c
-weights_file = open(os.path.join(ROOT_DIR, 'cfg', 'yolov3.weights'), 'rb')
+weights_file = open(os.path.join(ROOT_DIR, 'cfg', '{}.weights'.format(YOLO_VERSION)), 'rb')
 major, minor, revision = np.ndarray(
     shape=(3,), dtype='int32', buffer=weights_file.read(12))
 if (major * 10 + minor) >= 2 and major < 1000 and minor < 1000:
@@ -41,7 +42,7 @@ def darknet_base(inputs, include_yolo_head=True):
     :param include_yolo_head: Includes the YOLO head
     :return: A list of output layers and the network config
     """
-    path = os.path.join(ROOT_DIR, 'cfg', 'yolov3.cfg')
+    path = os.path.join(ROOT_DIR, 'cfg', '{}.cfg'.format(YOLO_VERSION))
     blocks = Parser.parse_cfg(path)
     x, layers, yolo_layers = inputs, [], []
     ptr = 0
@@ -67,6 +68,9 @@ def darknet_base(inputs, include_yolo_head=True):
 
         elif block_type == 'upsample':
             x, layers, yolo_layers, ptr = _build_upsample_layer(x, block, layers, yolo_layers, ptr)
+
+        elif block_type == 'maxpool':
+            x, layers, yolo_layers, ptr = _build_maxpool_layer(x, block, layers, yolo_layers, ptr)
 
         else:
             raise ValueError('{} not recognized as block type'.format(block_type))
@@ -190,6 +194,18 @@ def _build_upsample_layer(x, block, layers, outputs, ptr):
     # NOTE: Alternative way of defining Upsample2D
     x = Lambda(lambda _x: tf.image.resize_bilinear(_x, (stride * tf.shape(_x)[1], stride * tf.shape(_x)[2])))(x)
     # x = UpSampling2D(size=stride)(x)
+    layers.append(x)
+
+    return x, layers, outputs, ptr
+
+
+def _build_maxpool_layer(x, block, layers, outputs, ptr):
+    stride = int(block['stride'])
+    size = int(block['size'])
+
+    x = MaxPooling2D(pool_size=(size, size),
+                     strides=(stride, stride),
+                     padding='same')(x)
     layers.append(x)
 
     return x, layers, outputs, ptr

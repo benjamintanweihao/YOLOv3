@@ -55,7 +55,7 @@ python webcam.py
 - [X] Use original scale of input image
 - [X] YOLO head in a function
 - [ ] Figure out Eager Execution + Loading Weights
-- [ ] Investigate Tiny YOLOv3
+- [X] Support Tiny YOLOv3
 - [ ] Investigate Quantization / Smaller Weights
 - [ ] Try this out on a Raspi3
 - [ ] Tensorflow.js (¯\\_(ツ)_/¯)

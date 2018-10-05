@@ -23,7 +23,7 @@ USE_YOLO_HEAD = True
 
 start = time.time()
 if USE_YOLO_HEAD:
-    predict_with_yolo_head(model, orig, config, confidence=0.5, iou_threshold=0.4)
+    predict_with_yolo_head(model, orig, config, confidence=0.3, iou_threshold=0.4)
 else:
     predict(model, orig, config, confidence=0.5, iou_threshold=0.4)
 
