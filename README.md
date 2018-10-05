@@ -53,6 +53,7 @@ python webcam.py
 - [X] Dependencies for CPU and GPU
 - [X] Instructions for running the project
 - [X] Use original scale of input image
+- [X] YOLO head in a function
 - [ ] Figure out Eager Execution + Loading Weights
 - [ ] Investigate Tiny YOLOv3
 - [ ] Investigate Quantization / Smaller Weights

@@ -27,7 +27,7 @@ model = tf.keras.models.load_model(model_path,
                                    custom_objects={'tf': tf})
 
 converter = lite.TocoConverter.from_keras_model_file(model_path,
-                                                     input_shapes={'input_1': [1, 608, 608, 3]})
+                                                     input_shapes={'input_1': [1, config['width'], config['height'], 3]})
 converter.post_training_quantize = True
 tflite_model = converter.convert()
 
