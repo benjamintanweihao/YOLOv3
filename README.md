@@ -8,6 +8,8 @@
 
 ## Quick Start
 
+### On a PC / Mac
+
 Create `conda` environment depending on whether you have a supported GPU or not:
 
 ```
@@ -15,7 +17,20 @@ conda env create -f environment-[c|g]pu.yml
 source activate yolov3-[c|g]pu
 ```
 
+### On a Raspi 3
+
+Install OpenCV 3 with the following [instructions](https://www.pyimagesearch.com/2017/09/04/raspbian-stretch-install-opencv-3-python-on-your-raspberry-pi/).
+
+Then:
+
+```
+pip install tensorflow scikit-learn
+```
+
+### Download YOLO Weights
+
 Download weights into the `cfg` directory:
+
 
 ```
 cd cfg
