@@ -11,8 +11,8 @@
 Create `conda` environment depending on whether you have a supported GPU or not:
 
 ```
-conda env create -f yolov3-[c|g]pu.yml
-source activate yolov3-[c|g]pu.yml
+conda env create -f environment-[c|g]pu.yml
+source activate yolov3-[c|g]pu
 ```
 
 Download weights into the `cfg` directory:
